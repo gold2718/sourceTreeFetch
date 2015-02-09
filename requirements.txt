@@ -1,0 +1,20 @@
+sourceTreeFetch.py would have the following functionality /
+responsibilities
+
+A) Checkout each external in externals_info into the appropriate
+location in the source tree 
+
+B) Check existing code to make sure its version matches the tag in
+externals_info 
+
+C) If an external from externals_info has its own externals_info file,
+call sourceTreeFetch.py recursively on that file
+
+D) Be able to specify a single external by name
+
+E) Take options such as --update which allows wiping out a clean copy to
+replace with a new one 
+
+F) Be able to take an alternate root for externals sources in cases
+where there is no access to the repository root (sort of implies ability
+to take a different externals_info file as an option).
