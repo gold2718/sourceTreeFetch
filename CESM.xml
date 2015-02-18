@@ -42,7 +42,7 @@
   <source name="MCT"
           tree_path="cesm/models/utils/mct">
     <repo protocol="git" 
-          root="git@github.com:MCSclimate/MCT.git"
+          root="https://github.com/MCSclimate/MCT.git"
           ref="tags/NagFix_MCT_2.8.3" />
   </source>
   <source name="PIO"
