@@ -30,3 +30,22 @@ file_hash() {
     fi
     echo "${hash}"
 }
+
+strip_arg() {
+    ## Simply strip the leading and trailing whitespace around the
+    ## input arguments. Note, multiple internal spaces converted to a
+    ## single space
+    echo $@
+}
+
+parse_keyword() {
+    ## Parse a line that looks like 'keyword = value' and return the keyword
+    local key="$(strip_arg $(echo ${@} | cut -d'=' -f1))"
+    echo "${key}"
+}
+
+parse_value() {
+    ## Parse a line that looks like 'keyword = value' and return the value
+    local val="$(strip_arg $(echo ${@} | cut -s -d'=' -f2))"
+    echo "${val}"
+}
