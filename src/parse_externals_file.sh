@@ -16,6 +16,9 @@ fi
 EXTERNAL_KEYWORDS=("branch" "externals" "from_submodule" "hash" "local_path"  \
                             "protocol" "repo_url" "required" "sparse" "tag")
 
+SECTION_REGEX='\[[[:space:]]*([A-Za-z0-9-_]+)[[:space:]]*]'
+SECTION_REGEX='\[[[:space:]]*([-A-Za-z0-9_]+)[[:space:]]*]'
+
 parse_externals_cfg_file() {
     ## Given a file, parse an externals file into an internal format
     local inline
@@ -31,12 +34,12 @@ parse_externals_cfg_file() {
         elif [ "${inline:0:1}" == "#" ]; then
             # Comment, ignore
             continue
-        elif [[ "${inline:0:1}" =~ [[][[:space:]]*([A-Za-z0-9-_]*)[[:space:]]*[]] ]]; then
+        elif [[ "${inline}" =~ ${SECTION_REGEX} ]]; then
             echo "${BASH_REMATCH[1]}"
         elif [ -n "$(echo ${inline} | grep '=')" ]; then
             key="$(parse_keyword ${inline})"
             val="$(parse_value ${inline})"
-            echo "${key} : ${val}"
+#            echo "${key} : ${val}"
         else
             echo "What's this? '${inline}'"
         fi
