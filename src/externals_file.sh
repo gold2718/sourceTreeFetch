@@ -41,7 +41,7 @@ cfg_to_externals() {
     local val
     local version
 
-    for section in ${sections[@]:2}; do
+    for section in ${sections[@]}; do
         tmparr=(${section//${NAME_CHR}/ })
         eval "${1}[\${tmparr[0]}]=\${tmparr[1]}"
     done
@@ -143,14 +143,11 @@ print_externals_cfg() {
     local key
     local keyval
     local section
-    local sections=(${1//${SECTION_CHR}/ })
+    local sections
     local val
     local version
 
-    for section in ${sections[@]}; do
-        tmparr=(${section//${NAME_CHR}/ })
-        externals[${tmparr[0]}]=${tmparr[1]}
-    done
+    cfg_to_externals externals "${1}"
     for section in $(echo ${!externals[@]} | tr ' ' '\n' | sort); do
         if [ "${section}" != "${CFG_DESC_NAME}" ]; then
             echo "[${section}]"
