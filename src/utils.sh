@@ -1,3 +1,17 @@
+## Error codes
+CFG_INTERNAL_ERR=11
+CFG_SYNTAX_ERROR=12
+CFG_EXTNAME_ERROR=13
+CFG_KEYWORD_ERROR=14
+CFG_INVALID_CHAR=15
+
+## Special separator characters, not allowed in configuration file
+## While this could technically show up in a directory name, does anyone use it?
+SECTION_CHR='&'
+KEYVAL_CHR='@'
+NAME_CHR=';'
+SPECIAL_CHRS="${SECTION_CHR}|${NAME_CHR}|${KEYVAL_CHR}"
+
 ## Utility functions
 
 tbl_gen_hash_key=(61 59 53 47 43 41 37 31 29 23 17 13 11 7 3 1)
@@ -48,4 +62,14 @@ parse_value() {
     ## Parse a line that looks like 'keyword = value' and return the value
     local val="$(strip_arg $(echo ${@} | cut -s -d'=' -f2))"
     echo "${val}"
+}
+
+valid_string() {
+    ## Check to see if string ($1) has any invalid character
+    ## $2 is a regex to detect any invalid character or sequence
+    if [[ "${1}" =~ ${2} ]]; then
+        return ${CFG_INVALID_CHAR}
+    else
+        return 0
+    fi
 }
