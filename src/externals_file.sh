@@ -41,11 +41,9 @@ cfg_to_externals() {
     local val
     local version
 
-    file="${sections[0]}"
-    version="${sections[1]}"
     for section in ${sections[@]:2}; do
         tmparr=(${section//${NAME_CHR}/ })
-        externals[${tmparr[0]}]=${tmparr[1]}
+        eval "${1}[\${tmparr[0]}]=\${tmparr[1]}"
     done
 }
 
