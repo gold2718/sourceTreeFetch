@@ -9,6 +9,7 @@ CFG_INVALID_CHAR=15
 ## While this could technically show up in a directory name, does anyone use it?
 SECTION_CHR='&'
 KEYVAL_CHR='@'
+KEYVAL_SEP=':' # Allowed in values so not included in SPECIAL_CHRS
 NAME_CHR=';'
 SPECIAL_CHRS="${SECTION_CHR}|${NAME_CHR}|${KEYVAL_CHR}"
 

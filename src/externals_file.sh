@@ -19,6 +19,7 @@ declare -A EXTERNAL_KEYWORDS=(["branch"]=1 ["externals"]=1 ["from_submodule"]=1 
 
 CFG_DESC_NAME="externals_description"
 VERSION_KEY="schema_version"
+CFG_FILENAME_KEY="xxCfgFilePath"
 SECTION_REGEX='\[[[:space:]]*([-A-Za-z0-9_]+)[[:space:]]*]'
 
 cfgerr() {
@@ -31,6 +32,21 @@ cfgerr() {
         echo "ERROR: ${4} on ${3}:${2}"
     fi
     return ${1}
+}
+
+cfg_to_externals() {
+    ## Convert an internal configuration format $2 to externals
+    ## Add each external to the input $1.
+    local sections=(${2//${SECTION_CHR}/ })
+    local val
+    local version
+
+    file="${sections[0]}"
+    version="${sections[1]}"
+    for section in ${sections[@]:2}; do
+        tmparr=(${section//${NAME_CHR}/ })
+        externals[${tmparr[0]}]=${tmparr[1]}
+    done
 }
 
 parse_externals_cfg_file() {
@@ -95,7 +111,10 @@ parse_externals_cfg_file() {
                 valid_string "${val}" "${SPECIAL_CHRS}"
                 res=$?
                 if [ ${res} -eq 0 ]; then
-                    tmp="${externals[${current_ext}]}${KEYVAL_CHR}${key}:${val}"
+                    tmp="${key}${KEYVAL_SEP}${val}"
+                    if [ -n "${externals[${current_ext}]}" ]; then
+                        tmp="${externals[${current_ext}]}${KEYVAL_CHR}${tmp}"
+                    fi
                     externals[${current_ext}]="${tmp}"
                 else
                     cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} \
@@ -110,7 +129,8 @@ parse_externals_cfg_file() {
         fi
     done < "${1}"
     # Wrapup
-    config="${1}${SECTION_CHR}${version}"
+    config="${CFG_DESC_NAME}${NAME_CHR}${CFG_FILENAME_KEY}${KEYVAL_SEP}${1}"
+    config="${config}${KEYVAL_CHR}${VERSION_KEY}${KEYVAL_SEP}${version}"
     line="$(echo ${!externals[@]} | sort)"
     for key in ${line}; do
         config="${config}${SECTION_CHR}${key}${NAME_CHR}${externals[${key}]}"
@@ -129,18 +149,24 @@ print_externals_cfg() {
     local val
     local version
 
-    file="${sections[0]}"
-    version="${sections[1]}"
-    for section in ${sections[@]:2}; do
+    for section in ${sections[@]}; do
         tmparr=(${section//${NAME_CHR}/ })
         externals[${tmparr[0]}]=${tmparr[1]}
     done
     for section in $(echo ${!externals[@]} | tr ' ' '\n' | sort); do
-        echo "[${section}]"
+        if [ "${section}" != "${CFG_DESC_NAME}" ]; then
+            echo "[${section}]"
+        fi
         for keyval in ${externals[${section}]//${KEYVAL_CHR}/ }; do
-            key=$(echo ${keyval} | cut -d':' -f1)
-            val=$(echo ${keyval} | cut -d':' -f2-)
-            echo "  ${key} = ${val}"
+            key=$(echo ${keyval} | cut -d"${KEYVAL_SEP}" -f1)
+            val=$(echo ${keyval} | cut -d"${KEYVAL_SEP}" -f2-)
+            if [ "${section}" == "${CFG_DESC_NAME}" ]; then
+                if [ "${key}" == "${VERSION_KEY}" ]; then
+                    version="${val}"
+                fi
+            else
+                echo "  ${key} = ${val}"
+            fi
         done
         echo ""
     done
