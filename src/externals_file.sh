@@ -47,6 +47,10 @@ cfg_to_externals() {
     done
 }
 
+# 1. create externals_list as a module variable (list of external names)
+# 2. declare and export an assoc array for an external being parsed
+# 3. write accessor functions for external name list and external assoc array
+# 4. does it work?
 parse_externals_cfg_file() {
     ## Given a file, parse an externals file into an internal format
     local config=""       # The parsed configuration

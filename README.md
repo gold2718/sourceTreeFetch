@@ -1,6 +1,7 @@
 sourceTreeFetch
 ===============
 
-Python tool to check out git or subversion externals into a single directory structure
-Externals structure defined in XML file
-source_info.xsd defines XML format
+Simple tool to check out git externals into a single directory structure
+Externals structure defined in configuration file (ini format)
+
+Mode of operation
