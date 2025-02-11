@@ -3,10 +3,9 @@
 ## Parse an Externals.cfg file into an internal format and provide routines
 ## to provide useful information as requested.
 
-if [ -f "/utils.sh" ]; then
-    . utils.sh
-elif [ -f "src/utils.sh" ]; then
-    . src/utils.sh
+script_dir="$(cd $(dirname ${0}); pwd -P)"
+if [ -f "${script_dir}/utils.sh" ]; then
+    . "${script_dir}/utils.sh"
 else
     echo "Cannot find utils.sh"
     exit 1
@@ -22,16 +21,24 @@ VERSION_KEY="schema_version"
 CFG_FILENAME_KEY="xxCfgFilePath"
 SECTION_REGEX='\[[[:space:]]*([-A-Za-z0-9_]+)[[:space:]]*]'
 
+declare externals=() # Collection of external names of parsed externals config file
+
 cfgerr() {
     ## On an error condition ($1 != 0), print an error message and quit
     ## $1 is the status (zero or an error code)
     ## $2 is the current config line number
     ## $3 is the current config filename
-    ## $4 is an error message
+    ## $4 is the cumulative error string
+    ## $5 is an error message
+    local estr=""
     if [ ${1} -ne 0 ]; then
-        echo "ERROR: ${4} on ${3}:${2}"
+        if [ -n "${4}" ]; then
+            estr="${4}\nERROR: ${5} on ${3}:${2}"
+        else
+            estr="ERROR: ${5} on ${3}:${2}"
+        fi
     fi
-    return ${1}
+    echo "${estr}"
 }
 
 cfg_to_externals() {
@@ -55,16 +62,23 @@ parse_externals_cfg_file() {
     ## Given a file, parse an externals file into an internal format
     local config=""       # The parsed configuration
     local current_ext=""  # The name of the current external being parsed
-    local -A externals=() # For collecting externals during parsing
     local inline          # Current line minus leading and trailing whitespace
     local key
     local line            # Current line being parsed
-    local lineno=0        # Current line number
+    local -i lineno=0        # Current line number
     local res
+    local -i num_errors=0
     local tmp
     local value
     local version=""      # The configuration file schema version
+    local errstr=""       # Cumulative error string
 
+    if [ ! -f "${1}" ]; then
+        errstr="Cannot find file, '${1}'"
+        num_errors=$((num_errors + 1))
+        echo "${errstr}"
+        return ${num_errors}
+    fi
     while read line; do
         lineno=$((lineno + 1))
         inline="$(echo ${line} | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//')"
@@ -80,21 +94,29 @@ parse_externals_cfg_file() {
             valid_string "${current_ext}" "${SPECIAL_CHRS}"
             res=$?
             if [ ${res} -ne 0 ]; then
-                cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} \
-                       "Invalid character in external name, '${current_ext}'"
+                errstr=$(cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} "${errstr}"    \
+                                "Invalid char in external name, '${current_ext}'")
+                num_errors=$((num_errors + 1))
             fi
-            if [[ -v externals[${current_ext}] ]]; then
-                cfgerr ${CFG_EXTNAME_ERROR} ${lineno} ${1} \
-                       "Duplicate external name, ${current_ext}"
+            tmp="$(printf '%s\n' ${externals[@]} | grep -F -x ${current_ext})"
+            if [ -n  "${tmp}" ]; then
+                errstr=$(cfgerr ${CFG_EXTNAME_ERROR} ${lineno} ${1} "${errstr}"  \
+                                "Duplicate external name, ${current_ext},")
+                num_errors=$((num_errors + 1))
             elif [ "${current_ext}" != "${CFG_DESC_NAME}" ]; then
-                externals[${current_ext}]=""
+                externals+=(${current_ext})
+                export externals
+                export -n ${current_ext}
+                eval "declare -g -A ${current_ext}"
+                export -n ${current_ext}
             fi # No else, special case handled in keyword section
         elif [ -n "$(echo ${inline} | grep '=')" ]; then
             key="$(parse_keyword ${inline})"
             val="$(parse_value ${inline})"
             if [ -z "${current_ext}" ]; then
-                cfgerr ${CFG_SYNTAX_ERROR} ${lineno} ${1} \
-                       "Invalid keyword line, not parsing a section"
+                errstr=$(cfgerr ${CFG_SYNTAX_ERROR} ${lineno} ${1} "${errstr}" \
+                                "Invalid keyword line, not parsing a section")
+                num_errors=$((num_errors + 1))
             elif [ "${current_ext}" == "${CFG_DESC_NAME}" ]; then
                 if [ "${key}" == "${VERSION_KEY}" ]; then
                     valid_string "${val}" "${SPECIAL_CHRS}"
@@ -102,42 +124,73 @@ parse_externals_cfg_file() {
                     if [ ${res} -eq 0 ]; then
                         version="${val}"
                     else
-                        cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} \
-                               "Invalid character in '${val}'"
+                        errstr=$(cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1}         \
+                                        "${errstr}" "Invalid character in '${val}'")
+                        num_errors=$((num_errors + 1))
                     fi
                 else
-                    cfgerr ${CFG_KEYWORD_ERROR} ${lineno} ${1} \
-                           "Invalid keyword, '${key}', in ${CFG_DESC_NAME} section"
+                    tmp="Invalid keyword, '${key}'"
+                    errstr=$(cfgerr ${CFG_KEYWORD_ERROR} ${lineno} ${1}          \
+                                    "${errstr}"                                  \
+                                    "${tmp}, in ${CFG_DESC_NAME} section")
+                    num_errors=$((num_errors + 1))
                 fi
             elif [[ -v EXTERNAL_KEYWORDS[${key}] ]]; then
                 valid_string "${val}" "${SPECIAL_CHRS}"
                 res=$?
                 if [ ${res} -eq 0 ]; then
-                    tmp="${key}${KEYVAL_SEP}${val}"
-                    if [ -n "${externals[${current_ext}]}" ]; then
-                        tmp="${externals[${current_ext}]}${KEYVAL_CHR}${tmp}"
-                    fi
-                    externals[${current_ext}]="${tmp}"
+                    eval "${current_ext}[${key}]=\"${val}\""
+#                    tmp="${key}${KEYVAL_SEP}${val}"
+#                    if [ -n "${externals[${current_ext}]}" ]; then
+#                        tmp="${externals[${current_ext}]}${KEYVAL_CHR}${tmp}"
+#                    fi
+#                    externals[${current_ext}]="${tmp}"
                 else
-                    cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} \
-                           "Invalid character in '${val}'"
+                    errstr=$(cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} "${errstr}" \
+                                    "Invalid character in '${val}'")
+                    num_errors=$((num_errors + 1))
                 fi
             else
-                cfgerr ${CFG_KEYWORD_ERROR} ${lineno} ${1} \
-                       "Invalid keyword, '${key}', in ${current_ext} section"
+                tmp="Invalid keyword, '${key}'"
+                errstr=$(cfgerr ${CFG_KEYWORD_ERROR} ${lineno} ${1} "${errstr}"   \
+                                "${tmp}, in ${current_ext} section")
+                num_errors=$((num_errors + 1))
             fi
         else
-            cfgerr ${CFG_SYNTAX_ERROR} ${lineno} ${1} "Syntax error"
+            errstr=$(cfgerr ${CFG_SYNTAX_ERROR} ${lineno} ${1}        \
+                            "${errstr}" "Syntax error")
+            num_errors=$((num_errors + 1))
         fi
     done < "${1}"
-    # Wrapup
-    config="${CFG_DESC_NAME}${NAME_CHR}${CFG_FILENAME_KEY}${KEYVAL_SEP}${1}"
-    config="${config}${KEYVAL_CHR}${VERSION_KEY}${KEYVAL_SEP}${version}"
-    line="$(echo ${!externals[@]} | sort)"
-    for key in ${line}; do
-        config="${config}${SECTION_CHR}${key}${NAME_CHR}${externals[${key}]}"
-    done
-    echo "${config}"
+#    # Wrapup
+#    config="${CFG_DESC_NAME}${NAME_CHR}${CFG_FILENAME_KEY}${KEYVAL_SEP}${1}"
+#    config="${config}${KEYVAL_CHR}${VERSION_KEY}${KEYVAL_SEP}${version}"
+#    line="$(echo ${!externals[@]} | sort)"
+#    for key in ${line}; do
+#        config="${config}${SECTION_CHR}${key}${NAME_CHR}${externals[${key}]}"
+#    done
+    if [ ${num_errors} -eq 1 ]; then
+        echo "${errstr}"
+    elif [ ${num_errors} -gt 0 ]; then
+        echo -e "${num_errors} errors found\n${errstr}"
+    else
+        echo "${externals[@]}"
+    fi
+    return ${num_errors}
+}
+
+externals_list() {
+    # Return the list of externals when a config file has been parsed
+    echo "${externals[@]}"
+}
+
+external_keywords() {
+    # Given an external name ($1), return a list of its configuration keywords
+    if [[ -v "${1}" ]]; then
+        eval "echo \${!${1}[@]}"
+    else
+        echo "${1} not found: ${#cam[@]}"
+    fi
 }
 
 print_externals_cfg() {
