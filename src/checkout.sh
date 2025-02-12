@@ -11,29 +11,25 @@
 
 script_dir="$(cd $(dirname ${0}); pwd -P)"
 
-if [ -f "${script_dir}/externals_file.sh" ]; then
-    . "${script_dir}/externals_file.sh"
-else
-    echo "ERROR: Cannot find externals file script"
-    exit 1
-fi
+checkout_externals() {
+    # $1 is the name of the externals file
+    if [ -f "${script_dir}/externals_file.sh" ]; then
+        . "${script_dir}/externals_file.sh" ${1}
+    else
+        echo "ERROR: Cannot find externals file script"
+        exit 1
+    fi
+    if found_errors; then
+        report_errors
+    else
+        for ext in $(externals_list); do
+            echo "${ext}: $(external_local_path ${ext})"
+        done
+    fi
+}
 
-declare externals=()
-declare -A component_cfg
+checkout_externals Externals.cfg
 
-errmsg=$(parse_externals_cfg_file "${1}" ${externals})
-res=$?
-
-if [ ${res} -gt 0 ]; then
-    echo -e "${errmsg}"
-    exit ${res}
-else
-    # Read externals from errmsg into an array
-    IFS=' ' read -r -a externals <<< "${errmsg}"
-    echo "Externals.cfg successfully parsed"
-fi
-
-echo "Externals found: ${externals[@]}"
-
-ext=cam
-echo "${ext} keywords: $(external_keywords ${ext})"
+# XXgoldyXX: v debug only
+exit 0
+# XXgoldyXX: ^ debug only

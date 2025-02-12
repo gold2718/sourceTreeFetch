@@ -5,6 +5,8 @@ CFG_EXTNAME_ERROR=13
 CFG_KEYWORD_ERROR=14
 CFG_INVALID_CHAR=15
 CFG_MISSING_FILE=16
+CFG_DUPLICATE_TYPE=17
+CFG_DUPLICATE_KEY=18
 
 ## Special separator characters, not allowed in configuration file
 ## While this could technically show up in a directory name, does anyone use it?
