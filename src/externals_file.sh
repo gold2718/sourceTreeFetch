@@ -71,19 +71,6 @@ cfgerr() {
     echo "${estr}"
 }
 
-cfg_to_externals() {
-    ## Convert an internal configuration format $2 to externals
-    ## Add each external to the input $1.
-    local sections=(${2//${SECTION_CHR}/ })
-    local val
-    local version
-
-    for section in ${sections[@]}; do
-        tmparr=(${section//${NAME_CHR}/ })
-        eval "${1}[\${tmparr[0]}]=\${tmparr[1]}"
-    done
-}
-
 found_errors() {
     # Return 0 if errors were found parsing the externals file, 1 otherwise
     if [ -n "${errstr}" ]; then
@@ -215,7 +202,7 @@ while read line; do
             check_missing_keywords "${curr_ext}"
         fi
         curr_ext="${BASH_REMATCH[1]}"
-        valid_string "${curr_ext}" "${SPECIAL_CHRS}"
+        valid_string "${curr_ext}" "${EXTERNAL_REGEX}"
         res=$?
         if [ ${res} -ne 0 ]; then
             errstr=$(cfgerr ${CFG_INTERNAL_ERR} ${lineno} ${1} "${errstr}"    \
@@ -248,7 +235,7 @@ while read line; do
             num_errors=$((num_errors + 1))
         elif [ "${curr_ext}" == "${CFG_DESC_NAME}" ]; then
             if [ "${key}" == "${VERSION_KEY}" ]; then
-                valid_string "${val}" "${SPECIAL_CHRS}"
+                valid_string "${val}" "${VERSION_REGEX}"
                 res=$?
                 if [ ${res} -eq 0 ]; then
                     version="${val}"
@@ -265,7 +252,6 @@ while read line; do
                 num_errors=$((num_errors + 1))
             fi
         elif [[ -v EXTERNAL_KEYWORDS[${key}] ]]; then
-            valid_string "${val}" "${SPECIAL_CHRS}"
             res=$?
             if [ ${res} -eq 0 ]; then
                 case ${key} in
@@ -293,6 +279,9 @@ while read line; do
                         fi
                         ;;
                     from_submodule)
+                        errstr=$(cfgerr ${CFG_UNSUPPORTED} ${lineno} ${1} \
+                                        "${errstr}" "${tmp}")
+                        num_errors=$((num_errors + 1))
                         ;;
                     hash)
                         if [ "${ext_co_type[${curr_ext}]}" != "${UNSET_STR}" ]; then
@@ -405,32 +394,23 @@ unset val
 unset version
 
 print_externals_cfg() {
-    ## Pretty print an externals configuration ($1)
-    local -A externals=()
-    local file
-    local key
-    local keyval
-    local section
-    local sections
-    local val
-    local version
-
-    cfg_to_externals externals "${1}"
-    for section in $(echo ${!externals[@]} | tr ' ' '\n' | sort); do
-        if [ "${section}" != "${CFG_DESC_NAME}" ]; then
-            echo "[${section}]"
+    ## Pretty print this externals configuration
+    local ext
+    local tmp
+    for ext in $(externals_list); do
+        echo "[${ext}]"
+        echo "  $(external_checkout_type ${ext}) = $(external_checkout_loc ${ext})"
+        echo "  local_path = $(external_local_path ${ext})"
+        echo "  repo_url = $(external_repo_url ${ext})"
+        tmp="$(external_sparse ${ext})"
+        if [ "${tmp}" != "${NONE_STR}" ]; then
+            echo "  sparse = ${tmp}"
         fi
-        for keyval in ${externals[${section}]//${KEYVAL_CHR}/ }; do
-            key=$(echo ${keyval} | cut -d"${KEYVAL_SEP}" -f1)
-            val=$(echo ${keyval} | cut -d"${KEYVAL_SEP}" -f2-)
-            if [ "${section}" == "${CFG_DESC_NAME}" ]; then
-                if [ "${key}" == "${VERSION_KEY}" ]; then
-                    version="${val}"
-                fi
-            else
-                echo "  ${key} = ${val}"
-            fi
-        done
+        tmp="$(external_externals ${ext})"
+        if [ "${tmp}" != "${NONE_STR}" ]; then
+            echo "  externals = ${tmp}"
+        fi
+        echo "  required = $(external_required ${ext})"
         echo ""
     done
     echo "[${CFG_DESC_NAME}]"

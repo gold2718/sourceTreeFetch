@@ -7,14 +7,11 @@ CFG_INVALID_CHAR=15
 CFG_MISSING_FILE=16
 CFG_DUPLICATE_TYPE=17
 CFG_DUPLICATE_KEY=18
+CFG_UNSUPPORTED=19
 
-## Special separator characters, not allowed in configuration file
-## While this could technically show up in a directory name, does anyone use it?
-SECTION_CHR='&'
-KEYVAL_CHR='@'
-KEYVAL_SEP=':' # Allowed in values so not included in SPECIAL_CHRS
-NAME_CHR=';'
-SPECIAL_CHRS="${SECTION_CHR}|${NAME_CHR}|${KEYVAL_CHR}"
+## Regular expressions for various parts of a config file
+EXTERNAL_REGEX="[A-Za-z][A-Za-z0-9_]*" # For an external name
+VERSION_REGEX="[1-9][0-9]*[.][0-9]*[.][0-9]*"
 
 ## Utility functions
 
@@ -69,9 +66,8 @@ parse_value() {
 }
 
 valid_string() {
-    ## Check to see if string ($1) has any invalid character
-    ## $2 is a regex to detect any invalid character or sequence
-    if [[ "${1}" =~ ${2} ]]; then
+    ## Check to see if string ($1) matches a regular expression ($2)
+    if ! [[ "${1}" =~ ${2} ]]; then
         return ${CFG_INVALID_CHAR}
     else
         return 0

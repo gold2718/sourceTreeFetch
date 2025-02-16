@@ -22,9 +22,7 @@ checkout_externals() {
     if found_errors; then
         report_errors
     else
-        for ext in $(externals_list); do
-            echo "${ext}: $(external_local_path ${ext})"
-        done
+        print_externals_cfg
     fi
 }
 
