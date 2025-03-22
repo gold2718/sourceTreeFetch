@@ -137,20 +137,32 @@ help() {
     # 2: Option input hint string (empty string for flags)
     # 3: Option description
     # If there is a positional argument description, it should be first.
-    local opts
-    local varname
+    local -i ind
+    local -i item_ind
+    local printed_options=false
+    local printed_positional=false
+    local desc
+    local hint
+    local optname
     echo -e "${1}"
     shift
-    if [ $# -gt 0 ]; then
-        varname="${1}"
-        if [ "${!varname[0]}" == '*' ]; then
-            echo "positional arguments:"
-            format_line "${!varname[1]}" "${!varname[2]}"
-            shift
+    for item_ind in $(seq 1 $((${#HELP_OPTIONS[@]} / 3))); do
+        ind=$(( (item_ind - 1) * 3 ))
+        optname="${HELP_OPTIONS[${ind}]}"
+        hint="${HELP_OPTIONS[${ind+1}]}"
+        desc="${HELP_OPTIONS[${ind+2}]}"
+        if [ "${optname}" == '*' ]; then
+            if ! ${printed_positional}; then
+                echo -e "\npositional arguments:"
+                printed_positional=true
+            fi
+            format_line "${hint}" "${desc}"
+        else
+            if ! ${printed_options}; then
+                echo -e "\noptions:"
+                printed_options=true
+            fi
+            format_line "${optname} ${hint}" "${desc}"
         fi
-    fi
-    opts=(${@})
-    for opt in ${opts[@]}; do
-        echo "${!opt[0]}"
     done
 }
