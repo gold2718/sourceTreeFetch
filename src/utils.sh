@@ -73,3 +73,84 @@ valid_string() {
         return 0
     fi
 }
+
+bool_to_string() {
+    ## Given a boolean value ($1), return True of False
+    ## If $2 and $3 are present, return $2 for True and $3 for False
+    if ${1}; then
+        if [ $# -gt 1 ]; then
+            echo "${2}"
+        else
+            echo "True"
+        fi
+    else
+        if [ $# -gt 2 ]; then
+            echo "${3}"
+        else
+            echo "False"
+        fi
+    fi
+}
+
+format_line() {
+    ## Given a descriptor ($1) and a description ($2), format the output
+    local ind_str="$(printf ' %.0s' $(seq 1 ${INDENT}))"
+    local line="${1}"
+    local desc="${2}"
+    local -i curr_col
+    local -i desc_ind=0
+    local -i desc_len=${#desc}
+    local -i last_space=0
+    if [ ${#line} -le $((INDENT - 4)) ]; then # 4 is an arbitrary space choice
+        line="${line}${ind_str}"
+        line="${line:0:INDENT}"
+    else
+        echo -e "${line}"
+        line="${ind_str}"
+    fi
+    curr_col=${INDENT}
+    while [ ${desc_ind} -lt ${desc_len} ]; do
+        if [ "${desc:${desc_ind}:1}" == " " ]; then
+            last_space=${curr_col}
+        fi
+        line="${line}${desc:${desc_ind}:1}"
+        curr_col=$((curr_col + 1))
+        desc_ind=$((desc_ind + 1))
+        if [ ${curr_col} -ge ${LINELEN} ]; then
+            # Back up to the last space
+            echo -e "${line:0:${last_space}}"
+            desc_ind=$((desc_ind - curr_col + last_space + 1))
+            line="${ind_str}"
+            curr_col=${#line}
+            last_space=0
+        elif [ ${desc_ind} -ge ${desc_len} ]; then
+            echo "${line}"
+        fi
+    done
+}
+
+help() {
+    # Given a description ($1) and a list of help variable entries ($2-),
+    # Produce a help screen
+    # Each help variable entry contains 3 items:
+    # 1: Option names (* for positional) separated by a vertical bar
+    # 2: Option input hint string (empty string for flags)
+    # 3: Option description
+    # If there is a positional argument description, it should be first.
+    local opts
+    local varname
+    echo -e "${1}"
+    shift
+    if [ $# -gt 0 ]; then
+        varname="${1}"
+        if [ "${!varname[0]}" == '*' ]; then
+            echo "positional arguments:"
+            format_line "${!varname[1]}" "${!varname[2]}"
+            shift
+        fi
+    fi
+    opts=(${@})
+    for opt in ${opts[@]}; do
+        echo "${!opt[0]}"
+    done
+}
