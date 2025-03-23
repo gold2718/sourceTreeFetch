@@ -11,8 +11,6 @@
 
 script_dir="$(cd $(dirname ${0}); pwd -P)"
 
-export INDENT=24             # Description indent for help lines
-export LINELEN=80            # Output line length
 # Load utilities
 if [ -f "${script_dir}/utils.sh" ]; then
     . "${script_dir}/utils.sh"
@@ -30,18 +28,6 @@ opt_desc="${opt_desc} This flag will also checkout the optional externals."
 pos_desc="Specific component(s) to checkout."
 pos_desc="${pos_desc} By default, all required externals are checked out."
 
-##: BEGIN checkout_externals options
-export HELP_OPTIONS=(
-    "*" "[<component name> [<component_name [...]]]" "${pos_desc}"
-    "--help" "" "Show this help message and exit."
-    "--externals" "<EXTERNALS FILENAME>"
-    "Externals description filename. Default: ${EXTERNALS_FILE}"
-    "--optional" "" "${opt_desc}"
-)
-##: END checkout_externals options
-unset opt_desc
-unset pos_desc
-
 ##: BEGIN checkout_externals description
 read -rd '' CDESC << 'EOF'
 usage: checkout [OPTIONS] [components ...]
@@ -54,6 +40,32 @@ If the source tree already has externals checked out, checkout will
 attempt to update the externals to match the externals file
 EOF
 ##: END checkout_externals description
+
+## Each 'item' below is 4 consecutive entries
+  # 1: Option names (* for positional) separated by a vertical bar
+  # 2: Option input hint string (empty string for flags)
+  # 3: Option description
+  # 4: Option action (not used in help)
+##: BEGIN checkout_externals options
+export HELP_OPTIONS=(
+    # Positional args
+    "${POSITIONAL_KEY}" "[<component name> [<component_name [...]]]"
+    "${pos_desc}"
+    "COMPONENTS+=(\${1})"
+    # HELP
+    "--help" "" "Show this help message and exit."
+    "help \"\${CDESC}\"; exit 0"
+    # Specify externals file
+    "--externals" "<EXTERNALS FILENAME>"
+    "Externals description filename. Default: ${EXTERNALS_FILE}"
+    "EXTERNALS_FILE=\"\${2}\"; shift"
+    # Checkout optional components
+    "--optional" "" "${opt_desc}"
+    "OPTIONAL=true"
+)
+##: END checkout_externals options
+unset opt_desc
+unset pos_desc
 
 checkout_externals() {
     # $1 is the name of the externals file
@@ -70,9 +82,30 @@ checkout_externals() {
     fi
 }
 
-# XXgoldyXX: v debug only
-help "${CDESC}"
-exit 0
-# XXgoldyXX: ^ debug only
+## Process inputs
+# Create action array. key is option, value is action string
+declare -A actions
+for item_ind in $(seq 1 $((${#HELP_OPTIONS[@]} / 4))); do
+    ind=$(( (item_ind - 1) * 4 ))
+    actions["${HELP_OPTIONS[${ind}]}"]="${HELP_OPTIONS[${ind}+3]}"
+done
+
+while [ $# -gt 0 ]; do
+    key="${1}"
+    if [ "${key:0:2}" == "--" ]; then
+        eval ${actions["${key}"]}
+    elif [ "${key}" == "-h" ]; then
+        help "${CDESC}"
+        exit 0
+    elif [ "${key:0:1}" == "-" ]; then
+        echo "ERROR: Unknown argument, '${key}'"
+        help "${CDESC}"
+        exit 1
+    else
+        eval ${actions["${POSITIONAL_KEY}"]}
+    fi
+    shift
+done
+
 
 checkout_externals Externals.cfg

@@ -9,6 +9,11 @@ CFG_DUPLICATE_TYPE=17
 CFG_DUPLICATE_KEY=18
 CFG_UNSUPPORTED=19
 
+## Global strings and numbers
+POSITIONAL_KEY="$(echo '*' | md5sum | cut -d' ' -f1)"
+export INDENT=24             # Description indent for help lines
+export LINELEN=80            # Output line length
+
 ## Regular expressions for various parts of a config file
 EXTERNAL_REGEX="[A-Za-z][A-Za-z0-9_]*" # For an external name
 VERSION_REGEX="[1-9][0-9]*[.][0-9]*[.][0-9]*"
@@ -130,12 +135,13 @@ format_line() {
 }
 
 help() {
-    # Given a description ($1) and a list of help variable entries ($2-),
-    # Produce a help screen
-    # Each help variable entry contains 3 items:
+    # Given a description ($1) and a list of help variable entries
+    # ($HELP_OPTIONS), Produce a help screen
+    # Each help variable entry contains 4 items:
     # 1: Option names (* for positional) separated by a vertical bar
     # 2: Option input hint string (empty string for flags)
     # 3: Option description
+    # 4: Option action (not used in help)
     # If there is a positional argument description, it should be first.
     local -i ind
     local -i item_ind
@@ -146,12 +152,12 @@ help() {
     local optname
     echo -e "${1}"
     shift
-    for item_ind in $(seq 1 $((${#HELP_OPTIONS[@]} / 3))); do
-        ind=$(( (item_ind - 1) * 3 ))
+    for item_ind in $(seq 1 $((${#HELP_OPTIONS[@]} / 4))); do
+        ind=$(( (item_ind - 1) * 4 ))
         optname="${HELP_OPTIONS[${ind}]}"
-        hint="${HELP_OPTIONS[${ind+1}]}"
-        desc="${HELP_OPTIONS[${ind+2}]}"
-        if [ "${optname}" == '*' ]; then
+        hint="${HELP_OPTIONS[${ind}+1]}"
+        desc="${HELP_OPTIONS[${ind}+2]}"
+        if [ "${optname}" == "${POSITIONAL_KEY}" ]; then
             if ! ${printed_positional}; then
                 echo -e "\npositional arguments:"
                 printed_positional=true
