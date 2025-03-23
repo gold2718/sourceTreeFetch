@@ -1,0 +1,53 @@
+#! /bin/bash
+
+# Locations
+script_dir="$(cd $(dirname ${0}); pwd -P)"
+src_dir="$(cd ${script_dir}/../src; pwd -P)"
+tstfile_dir="${script_dir}/test_files"
+expect_dir="${script_dir}/expect"
+
+declare -i total_errs=0
+declare -i total_tests=0
+
+# Commands
+checkout="${src_dir}/checkout.sh"
+
+check_test() {
+    ## Check a test's output and return code
+    ## $1 is a test description
+    ## $2 is test result
+    ## $3 is expected test result
+    ## $4 is the test return code
+    ## $5 is the expected test return code
+    local desc="${1}"
+    local resp="${2}"
+    local expect="${3}"
+    local -i retcode=${4}
+    local -i expcode=${5}
+    local -i passfail=0 # 0 is pass, 1 is fail
+    if [ "${resp}" != "${expect}" ]; then
+        echo "ERROR: Incorrect output from ${desc}"
+        echo "expected: ${expect}"
+        echo "result:   ${resp}"
+        passfail=1
+    fi
+    if [ ${retcode} -ne ${expcode} ]; then
+        echo "ERROR: Incorrect return code from ${desc}"
+        echo "expected: ${expcode}, result: ${retcode}"
+        passfail=1
+    fi
+    total_tests=$((total_tests + 1))
+    total_errs=$((total_errs + passfail))
+}
+
+expect="ERROR: externals file, 'test/fooExternals.cfg', not found"
+resp="$(${checkout} --externals test/fooExternals.cfg 2>&1)"
+ret=$?
+check_test "Missing externals file" "${resp}" "${expect}" ${ret} 16
+
+## Summary
+if [ ${total_errs} -eq 0 ]; then
+    echo "All input error tests PASS"
+else
+    echo "${total_errs} / ${total_tests} input error tests FAILed"
+fi    

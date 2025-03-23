@@ -8,6 +8,7 @@ CFG_MISSING_FILE=16
 CFG_DUPLICATE_TYPE=17
 CFG_DUPLICATE_KEY=18
 CFG_UNSUPPORTED=19
+CFG_MISSING_PATH=20
 
 ## Global strings and numbers
 POSITIONAL_KEY="$(echo '*' | md5sum | cut -d' ' -f1)"
@@ -94,6 +95,22 @@ bool_to_string() {
         else
             echo "False"
         fi
+    fi
+}
+
+check_file() {
+    # Check that a file ($2) exists or output an error and exit
+    if [ ! -f "${2}" ]; then
+        echo "ERROR: ${1}, '${2}', not found"
+        exit ${CFG_MISSING_FILE}
+    fi
+}
+
+check_path() {
+    # Check that a path ($2) exists or output an error and exit
+    if [ ! -d "${2}" ]; then
+        echo "ERROR: ${1}, '${2}', not found"
+        exit ${CFG_MISSING_PATH}
     fi
 }
 

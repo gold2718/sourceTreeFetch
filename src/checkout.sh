@@ -22,11 +22,14 @@ fi
 COMPONENTS=()
 EXTERNALS_FILE="${EXTERNALS_FILE:-Externals.cfg}" # Default externals.cfg filename
 OPTIONAL=${OPTIONAL:-false}     # Flag to turn on optional externals checkout
+ROOT_PATH="$(pwd -P)"
 
 opt_desc="By default only the required externals are checked out."
 opt_desc="${opt_desc} This flag will also checkout the optional externals."
 pos_desc="Specific component(s) to checkout."
 pos_desc="${pos_desc} By default, all required externals are checked out."
+root_desc="Root of checkout path where externals will be checked out."
+root_desc="${root_desc} Default: ${ROOT_PATH}"
 
 ##: BEGIN checkout_externals description
 read -rd '' CDESC << 'EOF'
@@ -58,14 +61,18 @@ export HELP_OPTIONS=(
     # Specify externals file
     "--externals" "<EXTERNALS FILENAME>"
     "Externals description filename. Default: ${EXTERNALS_FILE}"
-    "EXTERNALS_FILE=\"\${2}\"; shift"
+    "EXTERNALS_FILE=\"\${2}\"; shift" # Can't check file until root is set
     # Checkout optional components
     "--optional" "" "${opt_desc}"
     "OPTIONAL=true"
+    # Set root checkout directory
+    "--root" "<root-checkout-path>" "${root_desc}"
+    "check_path \"root path\" \"\${2}\"; ROOT_PATH=\"\${2}\"; shift"
 )
 ##: END checkout_externals options
 unset opt_desc
 unset pos_desc
+unset root_desc
 
 checkout_externals() {
     # $1 is the name of the externals file
@@ -93,19 +100,34 @@ done
 while [ $# -gt 0 ]; do
     key="${1}"
     if [ "${key:0:2}" == "--" ]; then
-        eval ${actions["${key}"]}
+        ## Process an optional argument
+        if [ ! ${actions["${key}"]+_} ]; then
+            ## Unknown optional argument!
+            echo "ERROR: Unknown argument, '${key}'"
+            help "${CDESC}"
+            exit ${CFG_KEYWORD_ERROR}
+        else
+            eval ${actions["${key}"]}
+        fi
     elif [ "${key}" == "-h" ]; then
+        ## Support old people trying to get help
         help "${CDESC}"
         exit 0
     elif [ "${key:0:1}" == "-" ]; then
+        ## All options are POSIX style
         echo "ERROR: Unknown argument, '${key}'"
         help "${CDESC}"
-        exit 1
+        exit ${CFG_KEYWORD_ERROR}
     else
+        ## Handle positional arguments
         eval ${actions["${POSITIONAL_KEY}"]}
     fi
     shift
 done
 
+## Check inputs
+check_path "root path" "${ROOT_PATH}"
+cd ${ROOT_PATH}
+check_file "externals file" "${EXTERNALS_FILE}"
 
-checkout_externals Externals.cfg
+checkout_externals "${EXTERNALS_FILE}"
